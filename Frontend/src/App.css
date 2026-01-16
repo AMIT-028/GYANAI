@@ -1,0 +1,17 @@
+* {
+    color: #ececec;
+    font-family: Roboto, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden; 
+}
+
+
+.app {
+    background-color: #212121;
+    display: flex;
+   
+}

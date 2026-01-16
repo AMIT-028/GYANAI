@@ -1,0 +1,268 @@
+
+.chatWindow {
+  background-color: #212121;
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+   overflow: hidden;
+}
+.navbar {
+  width: 100%;
+  height: 60px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.navbar span {
+  margin: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.userIconDiv {
+  margin: 1rem 2rem;
+  cursor: pointer;
+}
+
+.userIcon {
+  background-color: #339cff;
+  height: 28px;
+  width: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+.chatInput {
+  width: 100%;
+  padding-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+
+.inputBox {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #2c2c2c;
+  padding: 12px 18px;
+  border-radius: 999px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+/* FILE CHIP INSIDE INPUT */
+.fileChip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #3a3a3a;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.fileIcon {
+  font-size: 14px;
+}
+
+.fileName {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.removeFile {
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.removeFile:hover {
+  opacity: 1;
+  color: #f87171;
+}
+
+
+.attachBtn {
+  font-size: 22px;
+  color: #cfcfcf;
+  cursor: pointer;
+  user-select: none;
+}
+
+.attachBtn:hover {
+  color: white;
+}
+
+
+.inputBox input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: white;
+  font-size: 15px;
+}
+
+.inputBox input::placeholder {
+  color: #9b9b9b;
+}
+
+
+
+#submit {
+  font-size: 18px;
+  color: #cfcfcf;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#submit:hover {
+  color: white;
+}
+
+
+
+.filePreview {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #cfcfcf;
+  max-width: 720px;
+  width: 100%;
+  text-align: left;
+  padding-left: 12px;
+}
+
+.info {
+  font-size: 0.75rem;
+  margin-top: 6px;
+  color: #b4b4b4;
+}
+
+.dropDown {
+  position: absolute;
+  top: 4rem;
+  right: 4rem;
+  width: 160px;
+  background-color: #323232;
+  padding: 0.4rem;
+  border-radius: 8px;
+  z-index: 1000;
+}
+
+.dropDownItem {
+  padding: 0.6rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.dropDownItem:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+.fileChip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #2f2f2f;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #e5e7eb;
+  max-width: 260px;
+}
+
+.fileIcon {
+  font-size: 16px;
+}
+
+.fileThumb {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.fileName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.removeFile {
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.removeFile:hover {
+  opacity: 1;
+}
+.actionBtns {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.micBtn {
+  cursor: pointer;
+  font-size: 18px;
+  color: #aaa;
+}
+
+.micBtn.listening {
+  color: #ff4d4d;
+}
+
+@keyframes micPulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+}
+.waveform {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.waveform span {
+  width: 4px;
+  background: #ff4d4d;
+  border-radius: 2px;
+  transition: height 0.08s ease;
+}
+.waveform span:nth-child(1) { animation-delay: 0s; }
+.waveform span:nth-child(2) { animation-delay: 0.15s; }
+.waveform span:nth-child(3) { animation-delay: 0.3s; }
+.waveform span:nth-child(4) { animation-delay: 0.45s; }
+.waveform span:nth-child(5) { animation-delay: 0.6s; }
+
+@keyframes wave {
+  0% { height: 6px; opacity: 0.4; }
+  50% { height: 18px; opacity: 1; }
+  100% { height: 6px; opacity: 0.4; }
+}
