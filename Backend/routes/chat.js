@@ -9,7 +9,7 @@ const pdfParse = require("pdf-parse");
 const Tesseract = require("tesseract.js");
 const officeParser = require("officeparser");
 const { parse } = require("csv-parse/sync");
-const pdfPoppler = require("pdf-poppler");
+
 
 
 
@@ -96,13 +96,7 @@ router.post("/chat", async (req, res) => {
         const thumbDir = path.join("uploads", "thumbnails");
         if (!fs.existsSync(thumbDir)) fs.mkdirSync(thumbDir, { recursive: true });
 
-        await pdfPoppler.convert(filePath, {
-          format: "png",
-          out_dir: thumbDir,
-          out_prefix: file.filename,
-          page: 1,
-        });
-
+        
         thumbnail = `/uploads/thumbnails/${file.filename}-1.png`;
       }
 
