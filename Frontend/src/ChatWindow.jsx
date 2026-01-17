@@ -4,6 +4,7 @@ import { MyContext } from "./MyContext.jsx";
 import { useContext, useState, useEffect, useRef } from "react";
 import { ScaleLoader } from "react-spinners";
 import axios from "axios";
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 function ChatWindow() {
   const {
@@ -121,7 +122,8 @@ function ChatWindow() {
     abortControllerRef.current = new AbortController();
 
     try {
-      const res = await fetch("http://localhost:3000/api/chat", {
+      const res = await fetch(`${API_BASE}/api/chat`, {
+
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -158,7 +160,8 @@ function ChatWindow() {
       if (!token) return;
 
       const res = await axios.post(
-        "http://localhost:3000/api/files/upload",
+  `${API_BASE}/api/files/upload`,
+
         formData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
