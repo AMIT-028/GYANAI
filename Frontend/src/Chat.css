@@ -211,3 +211,22 @@ code {
 .gptDiv .messageActions {
   justify-content: flex-start;
 }
+.messageActions span {
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.messageActions span:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.messageActions i {
+  font-size: 14px;
+}
