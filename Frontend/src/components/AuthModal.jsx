@@ -33,7 +33,8 @@ export default function AuthModal({ type, onClose }) {
 
       localStorage.setItem("token", res.data.token);
       onClose();
-      window.location.href = "/chat";
+      navigate("/chat", { replace: true });
+
 
 
     } catch (err) {
