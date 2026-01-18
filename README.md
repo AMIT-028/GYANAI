@@ -193,7 +193,7 @@ User logs in or signs up
 
 Backend returns JWT token
 
-Token stored in localStorage
+Token stored in localStorage 
 
 Protected routes validate token
 
