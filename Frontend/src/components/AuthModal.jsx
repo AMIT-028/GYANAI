@@ -31,11 +31,16 @@ export default function AuthModal({ type, onClose }) {
         return;
       }
 
+      // ✅ Save token
       localStorage.setItem("token", res.data.token);
+
+      // ✅ Close modal FIRST
       onClose();
-      navigate("/chat", { replace: true });
 
-
+      // ✅ Navigate AFTER React updates
+      setTimeout(() => {
+        navigate("/chat", { replace: true });
+      }, 0);
 
     } catch (err) {
       alert(err.response?.data?.error || "Authentication failed");

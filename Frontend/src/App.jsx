@@ -33,10 +33,8 @@ function App() {
     >
       <BrowserRouter>
         <Routes>
-          {/* Landing */}
           <Route path="/" element={<LandingPage />} />
 
-          {/* Chat (protected) */}
           <Route
             path="/chat"
             element={
