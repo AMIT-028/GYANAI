@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
 export default function AuthModal({ type, onClose }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -14,8 +16,8 @@ export default function AuthModal({ type, onClose }) {
 
       const url =
         type === "login"
-          ? "http://localhost:3000/api/auth/login"
-          : "http://localhost:3000/api/auth/register";
+          ? `${API_BASE}/api/auth/login`
+          : `${API_BASE}/api/auth/register`;
 
       const payload =
         type === "login"
@@ -29,17 +31,12 @@ export default function AuthModal({ type, onClose }) {
         return;
       }
 
-      // ✅ Save token
       localStorage.setItem("token", res.data.token);
-
-      // ✅ Close modal
       onClose();
-
-      // ✅ Navigate to chat
       navigate("/chat", { replace: true });
 
     } catch (err) {
-      alert(err.response?.data?.message || "Login failed");
+      alert(err.response?.data?.error || "Authentication failed");
     } finally {
       setLoading(false);
     }
@@ -63,8 +60,16 @@ export default function AuthModal({ type, onClose }) {
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        <button className="auth-footer span" onClick={handleSubmit} disabled={loading}>
-          {loading ? "Please wait..." : type === "login" ? "Log in" : "Sign up"}
+        <button
+          className="auth-footer span"
+          onClick={handleSubmit}
+          disabled={loading}
+        >
+          {loading
+            ? "Please wait..."
+            : type === "login"
+            ? "Log in"
+            : "Sign up"}
         </button>
       </div>
     </div>
