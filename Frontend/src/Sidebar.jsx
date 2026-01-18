@@ -10,7 +10,8 @@ function Sidebar() {
 
     const getAllThreads = async () => {
         try {
-            const response = await fetch("http://localhost:3000/api/thread");
+            const response = await fetch(`${API_BASE}/api/thread`);
+
 
             const res = await response.json();
             const filteredData = res.map(thread => ({threadId: thread.threadId, title: thread.title}));

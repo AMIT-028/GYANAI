@@ -3,52 +3,8 @@ import Chat from "./Chat.jsx";
 import { MyContext } from "./MyContext.jsx";
 import { useContext, useState, useEffect, useRef } from "react";
 import { ScaleLoader } from "react-spinners";
-import Papa from "papaparse";
-import * as pdfjsLib from "pdfjs-dist";
-import mammoth from "mammoth";
-import Tesseract from "tesseract.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
-
-/* ---------- FILE PARSERS ---------- */
-
-const parseCSV = (file) =>
-  new Promise((resolve) => {
-    Papa.parse(file, {
-      complete: (res) => resolve(JSON.stringify(res.data.slice(0, 20))),
-    });
-  });
-
-const parsePDF = async (file) => {
-  const buffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
-  let text = "";
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    text += content.items.map((it) => it.str).join(" ");
-  }
-  return text;
-};
-
-const parseDOCX = async (file) => {
-  const buffer = await file.arrayBuffer();
-  const result = await mammoth.extractRawText({ arrayBuffer: buffer });
-  return result.value;
-};
-
-const parseImage = async (file) => {
-  const { data } = await Tesseract.recognize(file, "eng");
-  return data.text;
-};
-
-const extractTextFromFile = async (file) => {
-  if (file.type === "text/csv") return parseCSV(file);
-  if (file.type === "application/pdf") return parsePDF(file);
-  if (file.type.includes("word")) return parseDOCX(file);
-  if (file.type.startsWith("image/")) return parseImage(file);
-  return "";
-};
 
 function ChatWindow() {
   const {
@@ -63,41 +19,96 @@ function ChatWindow() {
 
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [listening, setListening] = useState(false);
+  const [waveData, setWaveData] = useState([5, 5, 5, 5, 5]);
 
-  const fileInputRef = useRef(null);
+  const recognitionRef = useRef(null);
   const lastPromptRef = useRef("");
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
+  const dataArrayRef = useRef(null);
+  const sourceRef = useRef(null);
+  const rafRef = useRef(null);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     window.location.href = "/";
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  useEffect(() => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    setSelectedFile({
-      name: file.name,
-      type: file.type,
-      previewUrl: file.type.startsWith("image/")
-        ? URL.createObjectURL(file)
-        : null,
-      rawFile: file,
-    });
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = async () => {
+      setListening(true);
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioContextRef.current = new AudioContext();
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      sourceRef.current =
+        audioContextRef.current.createMediaStreamSource(stream);
+
+      analyserRef.current.fftSize = 256;
+      dataArrayRef.current = new Uint8Array(
+        analyserRef.current.frequencyBinCount
+      );
+
+      sourceRef.current.connect(analyserRef.current);
+
+      const animate = () => {
+        analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+        const values = Array.from(dataArrayRef.current.slice(0, 5)).map(
+          (v) => Math.max(6, v / 6)
+        );
+        setWaveData(values);
+        rafRef.current = requestAnimationFrame(animate);
+      };
+
+      animate();
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+      cancelAnimationFrame(rafRef.current);
+      audioContextRef.current?.close();
+      setWaveData([5, 5, 5, 5, 5]);
+
+      if (prompt.trim()) getReply();
+    };
+
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      setPrompt((p) => (p ? p + " " + transcript : transcript));
+    };
+
+    recognition.onerror = () => {
+      setListening(false);
+      cancelAnimationFrame(rafRef.current);
+    };
+
+    recognitionRef.current = recognition;
+  }, []);
+
+  const startListening = () => {
+    if (!listening) recognitionRef.current?.start();
+  };
+
+  const stopListening = () => {
+    if (listening) recognitionRef.current?.stop();
   };
 
   const getReply = async () => {
-    if (!prompt.trim() && !selectedFile) return;
+    if (!prompt.trim()) return;
 
     setLoading(true);
     setNewChat(false);
-
-    let extractedText = "";
-
-    if (selectedFile?.rawFile) {
-      extractedText = await extractTextFromFile(selectedFile.rawFile);
-    }
 
     lastPromptRef.current = prompt;
 
@@ -106,9 +117,8 @@ function ChatWindow() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          threadId: currThreadId,
           message: prompt,
-          extractedText,
+          threadId: currThreadId,
         }),
       });
 
@@ -119,7 +129,6 @@ function ChatWindow() {
     }
 
     setPrompt("");
-    setSelectedFile(null);
     setLoading(false);
   };
 
@@ -129,7 +138,6 @@ function ChatWindow() {
     setPrevChats((prev) => [
       ...prev,
       { role: "user", content: lastPromptRef.current },
-      { role: "assistant", content: reply },
     ]);
   }, [reply, setPrevChats]);
 
@@ -160,24 +168,6 @@ function ChatWindow() {
 
       <div className="chatInput">
         <div className="inputBox">
-          <span className="attachBtn" onClick={() => fileInputRef.current.click()}>
-            +
-          </span>
-
-          {selectedFile && (
-            <div className="fileChip">
-              {selectedFile.previewUrl ? (
-                <img src={selectedFile.previewUrl} className="fileThumb" />
-              ) : (
-                <span className="fileIcon">📄</span>
-              )}
-              <span className="fileName">{selectedFile.name}</span>
-              <span className="removeFile" onClick={() => setSelectedFile(null)}>
-                ✕
-              </span>
-            </div>
-          )}
-
           <input
             disabled={loading}
             type="text"
@@ -187,19 +177,35 @@ function ChatWindow() {
             onKeyDown={(e) => e.key === "Enter" && getReply()}
           />
 
-          <div id="submit" onClick={getReply}>
-            <i className="fa-solid fa-paper-plane"></i>
-          </div>
+          <div className="actionBtns">
+            <span
+              className={`micBtn ${listening ? "listening" : ""}`}
+              onClick={listening ? stopListening : startListening}
+            >
+              <i
+                className={`fa-solid ${
+                  listening ? "fa-microphone-slash" : "fa-microphone"
+                }`}
+              ></i>
+            </span>
 
-          <input
-            type="file"
-            hidden
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-          />
+            {listening && (
+              <div className="waveform">
+                {waveData.map((h, i) => (
+                  <span key={i} style={{ height: `${h}px` }} />
+                ))}
+              </div>
+            )}
+
+            <div id="submit" onClick={getReply}>
+              <i className="fa-solid fa-paper-plane"></i>
+            </div>
+          </div>
         </div>
 
-        <p className="info">GYANAI can make mistakes. Check important info.</p>
+        <p className="info">
+          GYANAI can make mistakes. Check important info.
+        </p>
       </div>
     </div>
   );
