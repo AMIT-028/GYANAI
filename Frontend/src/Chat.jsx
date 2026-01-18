@@ -3,6 +3,7 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import { MyContext } from "./MyContext";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
+import "highlight.js/styles/github-dark.css";
 
 function Chat() {
   const { newChat, prevChats, reply, setPrevChats, setPrompt } =
@@ -44,16 +45,21 @@ function Chat() {
     return () => clearInterval(intervalRef.current);
   }, [reply, setPrevChats]);
 
-  /* -------- SCROLL (SMART) -------- */
+  /* -------- SCROLL -------- */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [latestReply, prevChats]);
 
-  /* -------- COPY -------- */
+  /* -------- COPY (normal text) -------- */
   const copyText = async (text, idx) => {
     await navigator.clipboard.writeText(text);
     setCopiedIndex(idx);
     setTimeout(() => setCopiedIndex(null), 1200);
+  };
+
+  /* -------- COPY CODE -------- */
+  const copyCode = async (code) => {
+    await navigator.clipboard.writeText(code);
   };
 
   /* -------- SPEAK -------- */
@@ -109,16 +115,36 @@ function Chat() {
                     rehypePlugins={[rehypeHighlight]}
                     components={{
                       code({ inline, className, children, ...props }) {
-                        return !inline ? (
-                          <pre className="codeBlock">
-                            <code className={className} {...props}>
+                        const match = /language-(\w+)/.exec(className || "");
+                        const language = match ? match[1].toUpperCase() : "CODE";
+                        const codeText = String(children).replace(/\n$/, "");
+
+                        if (inline) {
+                          return (
+                            <code className="inlineCode" {...props}>
                               {children}
                             </code>
-                          </pre>
-                        ) : (
-                          <code className="inlineCode" {...props}>
-                            {children}
-                          </code>
+                          );
+                        }
+
+                        return (
+                          <div className="codeWrapper">
+                            <div className="codeHeader">
+                              <span className="codeLang">{language}</span>
+                              <button
+                                className="codeCopyBtn"
+                                onClick={() => copyCode(codeText)}
+                              >
+                                Copy
+                              </button>
+                            </div>
+
+                            <pre className="codeBlock">
+                              <code className={className} {...props}>
+                                {children}
+                              </code>
+                            </pre>
+                          </div>
                         );
                       },
                     }}
@@ -131,14 +157,20 @@ function Chat() {
               <div className="messageActions">
                 <span onClick={() => copyText(chat.content, idx)}>
                   <i
-                    className={`fa-solid ${copiedIndex === idx ? "fa-check" : "fa-copy"}`}
+                    className={`fa-solid ${
+                      copiedIndex === idx ? "fa-check" : "fa-copy"
+                    }`}
                   />
                 </span>
 
                 {chat.role === "assistant" && (
                   <span onClick={() => speakText(chat.content, idx)}>
                     <i
-                      className={`fa-solid ${speakingIndex === idx ? "fa-volume-xmark" : "fa-volume-high"}`}
+                      className={`fa-solid ${
+                        speakingIndex === idx
+                          ? "fa-volume-xmark"
+                          : "fa-volume-high"
+                      }`}
                     />
                   </span>
                 )}
