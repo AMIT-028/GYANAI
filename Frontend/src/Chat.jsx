@@ -1,173 +1,226 @@
-import "./Chat.css";
-import React, { useContext, useEffect, useRef, useState } from "react";
-import { MyContext } from "./MyContext";
-import ReactMarkdown from "react-markdown";
-import rehypeHighlight from "rehype-highlight";
+import "./ChatWindow.css";
+import Chat from "./Chat.jsx";
+import { MyContext } from "./MyContext.jsx";
+import { useContext, useState, useEffect, useRef } from "react";
+import { ScaleLoader } from "react-spinners";
 
-function Chat() {
-  const { newChat, prevChats, reply, setPrevChats, setPrompt } =
-    useContext(MyContext);
+import Papa from "papaparse";
+import * as pdfjsLib from "pdfjs-dist";
+import mammoth from "mammoth";
+import Tesseract from "tesseract.js";
 
-  const [latestReply, setLatestReply] = useState("");
-  const [copiedIndex, setCopiedIndex] = useState(null);
-  const [speakingIndex, setSpeakingIndex] = useState(null);
-  const [editingIndex, setEditingIndex] = useState(null);
-  const [editedText, setEditedText] = useState("");
+const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
-  const intervalRef = useRef(null);
-  const bottomRef = useRef(null);
+/* ---------- FILE PARSERS ---------- */
+const parseCSV = (file) =>
+  new Promise((resolve) => {
+    Papa.parse(file, {
+      complete: (res) => resolve(JSON.stringify(res.data.slice(0, 20))),
+    });
+  });
 
-  /* -------- STREAM WORD BY WORD -------- */
+const parsePDF = async (file) => {
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  let text = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map((it) => it.str).join(" ");
+  }
+  return text;
+};
+
+const parseDOCX = async (file) => {
+  const buffer = await file.arrayBuffer();
+  const res = await mammoth.extractRawText({ arrayBuffer: buffer });
+  return res.value;
+};
+
+const parseImage = async (file) => {
+  const { data } = await Tesseract.recognize(file, "eng");
+  return data.text;
+};
+
+const extractTextFromFile = async (file) => {
+  if (file.type === "text/csv") return parseCSV(file);
+  if (file.type === "application/pdf") return parsePDF(file);
+  if (file.type.includes("word")) return parseDOCX(file);
+  if (file.type.startsWith("image/")) return parseImage(file);
+  return "";
+};
+
+function ChatWindow() {
+  const {
+    prompt,
+    setPrompt,
+    reply,
+    setReply,
+    currThreadId,
+    setPrevChats,
+    setNewChat,
+  } = useContext(MyContext);
+
+  const [loading, setLoading] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [waveData, setWaveData] = useState([5, 5, 5, 5, 5]);
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  const fileInputRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const abortRef = useRef(null);
+  const lastPromptRef = useRef("");
+
+  /* ---------- MIC + WAVEFORM ---------- */
   useEffect(() => {
-    if (!reply) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
 
-    clearInterval(intervalRef.current);
-    setLatestReply("");
+    const rec = new SR();
+    rec.lang = "en-US";
 
-    const words = reply.split(" ");
-    let i = 0;
+    rec.onstart = async () => {
+      setListening(true);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioCtx = new AudioContext();
+      const analyser = audioCtx.createAnalyser();
+      const src = audioCtx.createMediaStreamSource(stream);
+      src.connect(analyser);
+      analyser.fftSize = 256;
+      const data = new Uint8Array(analyser.frequencyBinCount);
 
-    intervalRef.current = setInterval(() => {
-      setLatestReply((p) => p + (p ? " " : "") + words[i]);
-      i++;
+      const animate = () => {
+        analyser.getByteFrequencyData(data);
+        setWaveData([...data.slice(0, 5)].map((v) => Math.max(6, v / 6)));
+        if (listening) requestAnimationFrame(animate);
+      };
+      animate();
+    };
 
-      if (i >= words.length) {
-        clearInterval(intervalRef.current);
-        setPrevChats((prev) => [
-          ...prev,
-          { role: "assistant", content: reply },
-        ]);
-        setLatestReply("");
-      }
-    }, 35);
+    rec.onend = () => {
+      setListening(false);
+      setWaveData([5, 5, 5, 5, 5]);
+    };
 
-    return () => clearInterval(intervalRef.current);
-  }, [reply, setPrevChats]);
+    rec.onresult = (e) =>
+      setPrompt((p) => p + " " + e.results[0][0].transcript);
 
-  /* -------- SCROLL (SMART) -------- */
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [latestReply, prevChats]);
+    recognitionRef.current = rec;
+  }, []);
 
-  /* -------- COPY -------- */
-  const copyText = async (text, idx) => {
-    await navigator.clipboard.writeText(text);
-    setCopiedIndex(idx);
-    setTimeout(() => setCopiedIndex(null), 1200);
+  /* ---------- FILE UPLOAD ---------- */
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setSelectedFile(file);
   };
 
-  /* -------- SPEAK -------- */
-  const speakText = (text, idx) => {
-    if (speakingIndex === idx) {
-      speechSynthesis.cancel();
-      setSpeakingIndex(null);
-      return;
+  /* ---------- SEND MESSAGE ---------- */
+  const getReply = async () => {
+    if (!prompt.trim() && !selectedFile) return;
+
+    setLoading(true);
+    setNewChat(false);
+    lastPromptRef.current = prompt;
+
+    let extractedText = "";
+    if (selectedFile) {
+      extractedText = await extractTextFromFile(selectedFile);
     }
 
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.onend = () => setSpeakingIndex(null);
-    setSpeakingIndex(idx);
-    speechSynthesis.speak(u);
+    abortRef.current = new AbortController();
+
+    try {
+      const res = await fetch(`${API_BASE}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: abortRef.current.signal,
+        body: JSON.stringify({
+          message: prompt,
+          context: extractedText,
+          threadId: currThreadId,
+        }),
+      });
+
+      const data = await res.json();
+      setReply(data.reply);
+    } catch (e) {}
+
+    setPrompt("");
+    setSelectedFile(null);
+    setLoading(false);
   };
 
-  /* -------- EDIT -------- */
-  const submitEdit = (idx) => {
-    const updated = [...prevChats];
-    updated[idx] = { role: "user", content: editedText };
-    if (updated[idx + 1]?.role === "assistant") updated.splice(idx + 1, 1);
-    setPrevChats(updated);
-    setPrompt(editedText);
-    setEditingIndex(null);
+  const stopReply = () => {
+    abortRef.current?.abort();
+    setLoading(false);
   };
+
+  /* ---------- SAVE USER MESSAGE ---------- */
+  useEffect(() => {
+    if (!reply) return;
+    setPrevChats((prev) => [
+      ...prev,
+      { role: "user", content: lastPromptRef.current },
+    ]);
+  }, [reply]);
 
   return (
-    <>
-      {newChat && <h1 className="newChatTitle">Start a New Chat!</h1>}
+    <div className="chatWindow">
+      <Chat />
 
-      <div className="chats">
-        {prevChats.map((chat, idx) => (
-          <div
-            key={idx}
-            className={chat.role === "user" ? "userDiv" : "gptDiv"}
-          >
-            <div className="messageBlock">
-              {chat.role === "user" ? (
-                editingIndex === idx ? (
-                  <input
-                    value={editedText}
-                    autoFocus
-                    onChange={(e) => setEditedText(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && submitEdit(idx)}
-                  />
-                ) : (
-                  <div className="userMessage">{chat.content}</div>
-                )
-              ) : (
-                <div className="gptMessage">
-                  <ReactMarkdown
-                    rehypePlugins={[rehypeHighlight]}
-                    components={{
-                      code({ inline, className, children, ...props }) {
-                        return !inline ? (
-                          <pre className="codeBlock">
-                            <code className={className} {...props}>
-                              {children}
-                            </code>
-                          </pre>
-                        ) : (
-                          <code className="inlineCode" {...props}>
-                            {children}
-                          </code>
-                        );
-                      },
-                    }}
-                  >
-                    {chat.content}
-                  </ReactMarkdown>
-                </div>
-              )}
+      <ScaleLoader color="#fff" loading={loading} />
 
-              <div className="messageActions">
-                <span onClick={() => copyText(chat.content, idx)}>
-                  <i
-                    className={`fa-solid ${copiedIndex === idx ? "fa-check" : "fa-copy"}`}
-                  />
-                </span>
+      <div className="chatInput">
+        <div className="inputBox">
+          {/* FILE PREVIEW */}
+          {selectedFile && (
+            <div className="filePreview">
+              <span>{selectedFile.name}</span>
+              <button onClick={() => setSelectedFile(null)}>✕</button>
+            </div>
+          )}
 
-                {chat.role === "assistant" && (
-                  <span onClick={() => speakText(chat.content, idx)}>
-                    <i
-                      className={`fa-solid ${speakingIndex === idx ? "fa-volume-xmark" : "fa-volume-high"}`}
-                    />
-                  </span>
-                )}
+          <span className="attachBtn" onClick={() => fileInputRef.current.click()}>
+            +
+          </span>
 
-                {chat.role === "user" && (
-                  <span
-                    onClick={() => {
-                      setEditingIndex(idx);
-                      setEditedText(chat.content);
-                    }}
-                  >
-                    <i className="fa-solid fa-pen" />
-                  </span>
-                )}
-              </div>
+          <input
+            value={prompt}
+            disabled={loading}
+            placeholder="Ask anything"
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && getReply()}
+          />
+
+          <div className="actionBtns">
+            <span
+              className={`micBtn ${listening ? "listening" : ""}`}
+              onClick={() =>
+                listening
+                  ? recognitionRef.current.stop()
+                  : recognitionRef.current.start()
+              }
+            >
+              <i className={`fa-solid ${listening ? "fa-microphone-slash" : "fa-microphone"}`} />
+            </span>
+
+            <div id="submit" onClick={loading ? stopReply : getReply}>
+              <i className={`fa-solid ${loading ? "fa-stop" : "fa-paper-plane"}`} />
             </div>
           </div>
-        ))}
 
-        {latestReply && (
-          <div className="gptDiv">
-            <div className="gptMessage">{latestReply}</div>
-          </div>
-        )}
-
-        <div ref={bottomRef} />
+          <input
+            type="file"
+            hidden
+            ref={fileInputRef}
+            accept=".pdf,.csv,.docx,.png,.jpg,.jpeg"
+            onChange={handleFileUpload}
+          />
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
-export default Chat;
+export default ChatWindow;
