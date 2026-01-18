@@ -20,9 +20,9 @@ function ChatWindow() {
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [listening, setListening] = useState(false);
-  const [waveData, setWaveData] = useState([5, 5, 5, 5, 5]);
 
   const recognitionRef = useRef(null);
+  const abortRef = useRef(null);
   const lastPromptRef = useRef("");
 
   const handleLogout = () => {
@@ -30,37 +30,25 @@ function ChatWindow() {
     window.location.href = "/";
   };
 
-  /* ---------- SPEECH TO TEXT (INPUT MIC) ---------- */
+  /* -------- SPEECH TO TEXT -------- */
   useEffect(() => {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    const rec = new SR();
+    rec.lang = "en-US";
+    rec.onstart = () => setListening(true);
+    rec.onend = () => setListening(false);
+    rec.onresult = (e) =>
+      setPrompt((p) => (p ? p + " " : "") + e.results[0][0].transcript);
 
-    recognition.onstart = () => setListening(true);
-    recognition.onend = () => setListening(false);
-
-    recognition.onresult = (e) => {
-      const transcript = e.results[0][0].transcript;
-      setPrompt((p) => (p ? p + " " + transcript : transcript));
-    };
-
-    recognitionRef.current = recognition;
+    recognitionRef.current = rec;
   }, []);
 
-  const startListening = () => {
-    if (!listening) recognitionRef.current?.start();
-  };
+  const startListening = () => recognitionRef.current?.start();
+  const stopListening = () => recognitionRef.current?.stop();
 
-  const stopListening = () => {
-    if (listening) recognitionRef.current?.stop();
-  };
-
-  /* ---------- SEND MESSAGE ---------- */
+  /* -------- SEND MESSAGE -------- */
   const getReply = async () => {
     if (!prompt.trim()) return;
 
@@ -68,10 +56,13 @@ function ChatWindow() {
     setNewChat(false);
     lastPromptRef.current = prompt;
 
+    abortRef.current = new AbortController();
+
     try {
       const res = await fetch(`${API_BASE}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: abortRef.current.signal,
         body: JSON.stringify({
           message: prompt,
           threadId: currThreadId,
@@ -81,14 +72,19 @@ function ChatWindow() {
       const data = await res.json();
       setReply(data.reply);
     } catch (err) {
-      console.error(err);
+      if (err.name !== "AbortError") console.error(err);
     }
 
     setPrompt("");
     setLoading(false);
   };
 
-  /* ---------- SAVE USER MESSAGE ONLY ---------- */
+  const stopReply = () => {
+    abortRef.current?.abort();
+    setLoading(false);
+  };
+
+  /* -------- SAVE USER MESSAGE ONLY -------- */
   useEffect(() => {
     if (!reply) return;
 
@@ -124,10 +120,9 @@ function ChatWindow() {
       <div className="chatInput">
         <div className="inputBox">
           <input
-            disabled={loading}
-            type="text"
-            placeholder="Ask anything"
             value={prompt}
+            disabled={loading}
+            placeholder="Ask anything"
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && getReply()}
           />
@@ -137,15 +132,11 @@ function ChatWindow() {
               className={`micBtn ${listening ? "listening" : ""}`}
               onClick={listening ? stopListening : startListening}
             >
-              <i
-                className={`fa-solid ${
-                  listening ? "fa-microphone-slash" : "fa-microphone"
-                }`}
-              ></i>
+              <i className={`fa-solid ${listening ? "fa-microphone-slash" : "fa-microphone"}`} />
             </span>
 
-            <div id="submit" onClick={getReply}>
-              <i className="fa-solid fa-paper-plane"></i>
+            <div id="submit" onClick={loading ? stopReply : getReply}>
+              <i className={`fa-solid ${loading ? "fa-stop" : "fa-paper-plane"}`} />
             </div>
           </div>
         </div>

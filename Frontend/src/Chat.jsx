@@ -1,5 +1,5 @@
 import "./Chat.css";
-import React, { useContext, useState, useEffect, useRef } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { MyContext } from "./MyContext";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
@@ -13,44 +13,50 @@ function Chat() {
   const [speakingIndex, setSpeakingIndex] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
   const [editedText, setEditedText] = useState("");
+
+  const intervalRef = useRef(null);
   const bottomRef = useRef(null);
 
-  /* ---------- WORD BY WORD STREAMING ---------- */
+  /* -------- STREAM WORD BY WORD -------- */
   useEffect(() => {
     if (!reply) return;
 
-    let i = 0;
-    const words = reply.split(" ");
+    clearInterval(intervalRef.current);
     setLatestReply("");
 
-    const interval = setInterval(() => {
-      setLatestReply((prev) => prev + (prev ? " " : "") + words[i]);
+    const words = reply.split(" ");
+    let i = 0;
+
+    intervalRef.current = setInterval(() => {
+      setLatestReply((p) => p + (p ? " " : "") + words[i]);
       i++;
 
       if (i >= words.length) {
-        clearInterval(interval);
+        clearInterval(intervalRef.current);
         setPrevChats((prev) => [
           ...prev,
           { role: "assistant", content: reply },
         ]);
+        setLatestReply("");
       }
     }, 35);
 
-    return () => clearInterval(interval);
+    return () => clearInterval(intervalRef.current);
   }, [reply, setPrevChats]);
 
+  /* -------- SCROLL (SMART) -------- */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [latestReply, prevChats]);
 
-  /* ---------- COPY ---------- */
+  /* -------- COPY -------- */
   const copyText = async (text, idx) => {
     await navigator.clipboard.writeText(text);
     setCopiedIndex(idx);
     setTimeout(() => setCopiedIndex(null), 1200);
   };
 
-  /* ---------- TEXT TO SPEECH ---------- */
+  /* -------- SPEAK -------- */
   const speakText = (text, idx) => {
     if (speakingIndex === idx) {
       speechSynthesis.cancel();
@@ -65,15 +71,11 @@ function Chat() {
     speechSynthesis.speak(u);
   };
 
-  /* ---------- EDIT ---------- */
+  /* -------- EDIT -------- */
   const submitEdit = (idx) => {
     const updated = [...prevChats];
     updated[idx] = { role: "user", content: editedText };
-
-    if (updated[idx + 1]?.role === "assistant") {
-      updated.splice(idx + 1, 1);
-    }
-
+    if (updated[idx + 1]?.role === "assistant") updated.splice(idx + 1, 1);
     setPrevChats(updated);
     setPrompt(editedText);
     setEditingIndex(null);
@@ -108,33 +110,21 @@ function Chat() {
 
               <div className="messageActions">
                 <span onClick={() => copyText(chat.content, idx)}>
-                  <i
-                    className={`fa-solid ${
-                      copiedIndex === idx ? "fa-check" : "fa-copy"
-                    }`}
-                  ></i>
+                  <i className={`fa-solid ${copiedIndex === idx ? "fa-check" : "fa-copy"}`} />
                 </span>
 
                 {chat.role === "assistant" && (
                   <span onClick={() => speakText(chat.content, idx)}>
-                    <i
-                      className={`fa-solid ${
-                        speakingIndex === idx
-                          ? "fa-volume-xmark"
-                          : "fa-volume-high"
-                      }`}
-                    ></i>
+                    <i className={`fa-solid ${speakingIndex === idx ? "fa-volume-xmark" : "fa-volume-high"}`} />
                   </span>
                 )}
 
                 {chat.role === "user" && (
-                  <span
-                    onClick={() => {
-                      setEditingIndex(idx);
-                      setEditedText(chat.content);
-                    }}
-                  >
-                    <i className="fa-solid fa-pen"></i>
+                  <span onClick={() => {
+                    setEditingIndex(idx);
+                    setEditedText(chat.content);
+                  }}>
+                    <i className="fa-solid fa-pen" />
                   </span>
                 )}
               </div>
@@ -142,7 +132,7 @@ function Chat() {
           </div>
         ))}
 
-        {reply && (
+        {latestReply && (
           <div className="gptDiv">
             <div className="gptMessage">{latestReply}</div>
           </div>
