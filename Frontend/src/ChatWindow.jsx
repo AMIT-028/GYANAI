@@ -99,7 +99,9 @@ function ChatWindow() {
       <div className="navbar">
         <span>GYANAI</span>
         <div className="userIconDiv" onClick={() => setIsOpen(!isOpen)}>
-          <i className="fa-solid fa-user"></i>
+          <div className="userAvatar">
+            <i className="fa-solid fa-user"></i>
+          </div>
         </div>
       </div>
 
@@ -132,11 +134,15 @@ function ChatWindow() {
               className={`micBtn ${listening ? "listening" : ""}`}
               onClick={listening ? stopListening : startListening}
             >
-              <i className={`fa-solid ${listening ? "fa-microphone-slash" : "fa-microphone"}`} />
+              <i
+                className={`fa-solid ${listening ? "fa-microphone-slash" : "fa-microphone"}`}
+              />
             </span>
 
             <div id="submit" onClick={loading ? stopReply : getReply}>
-              <i className={`fa-solid ${loading ? "fa-stop" : "fa-paper-plane"}`} />
+              <i
+                className={`fa-solid ${loading ? "fa-stop" : "fa-paper-plane"}`}
+              />
             </div>
           </div>
         </div>

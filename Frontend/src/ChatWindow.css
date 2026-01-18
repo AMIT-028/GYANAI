@@ -26,20 +26,31 @@
 }
 
 .userIconDiv {
-  margin: 1rem 2rem;
   cursor: pointer;
-  background-color: #339cff;
 }
 
-.userIcon {
-  background-color: #339cff;
-  height: 28px;
-  width: 28px;
+.userAvatar {
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
+  background: linear-gradient(145deg, #2b2b2b, #1f1f1f);
+  border: 1px solid #333;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.25s ease;
 }
+
+.userAvatar i {
+  font-size: 16px;
+  color: #e5e7eb;
+}
+
+.userAvatar:hover {
+  background: linear-gradient(145deg, #3a3a3a, #252525);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
+}
+
 
 
 .chatInput {
