@@ -6,13 +6,8 @@ import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github-dark.css";
 
 function Chat() {
-  const {
-    newChat,
-    prevChats,
-    reply,
-    setPrompt,
-    setPrevChats,
-  } = useContext(MyContext);
+  const { newChat, prevChats, reply, setPrompt, setPrevChats } =
+    useContext(MyContext);
 
   const [latestReply, setLatestReply] = useState(null);
   const [copiedIndex, setCopiedIndex] = useState(null);
@@ -27,21 +22,28 @@ function Chat() {
       return;
     }
 
-    const words = reply.split(" ");
     let i = 0;
+    const words = reply.split(" ");
+    setLatestReply("");
 
     const interval = setInterval(() => {
-      setLatestReply(words.slice(0, i + 1).join(" "));
+      setLatestReply((prev) => prev + (prev ? " " : "") + words[i]);
       i++;
       if (i >= words.length) clearInterval(interval);
     }, 35);
 
     return () => clearInterval(interval);
   }, [reply]);
+  const isNearBottom = () => {
+    const el = document.querySelector(".chats");
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  };
 
   useEffect(() => {
+    if (!isNearBottom()) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [prevChats, latestReply]);
+  }, [latestReply, prevChats]);
 
   const copyText = async (text, idx) => {
     try {
@@ -112,9 +114,7 @@ function Chat() {
                       value={editedText}
                       autoFocus
                       onChange={(e) => setEditedText(e.target.value)}
-                      onKeyDown={(e) =>
-                        e.key === "Enter" && submitEdit(idx)
-                      }
+                      onKeyDown={(e) => e.key === "Enter" && submitEdit(idx)}
                     />
                   ) : (
                     <div className="chatText">{chat.content}</div>
