@@ -12,22 +12,11 @@ export default function LandingPage() {
 
   return (
     <div className="landing">
-      <Navbar
-        onLogin={() => setAuthType("login")}
-        onSignup={() => setAuthType("signup")}
-      />
-
+      <Navbar onLogin={onLogin} onSignup={onSignup} />
       <Hero />
       <About />
       <Features />
-      <Footer/>
-
-      {authType && (
-        <AuthModal
-          type={authType}
-          onClose={() => setAuthType(null)}
-        />
-      )}
+      <Footer />
     </div>
   );
 }
