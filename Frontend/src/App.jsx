@@ -33,10 +33,18 @@ function App() {
     >
       <BrowserRouter>
         <Routes>
-          {/* Landing */}
-          <Route path="/" element={<LandingPage />} />
 
-          {/* Chat (protected) */}
+      
+          <Route
+            path="/"
+            element={
+              localStorage.getItem("token")
+                ? <Navigate to="/chat" replace />
+                : <LandingPage />
+            }
+          />
+
+          
           <Route
             path="/chat"
             element={
@@ -48,6 +56,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+
         </Routes>
       </BrowserRouter>
     </MyContext.Provider>
