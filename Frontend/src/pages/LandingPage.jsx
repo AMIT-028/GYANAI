@@ -7,7 +7,7 @@ import AuthModal from "../components/AuthModal";
 import Footer from "../components/Footer";
 import "../landing.css";
 
-export default function LandingPage() {
+export default function LandingPage({ onLogin, onSignup }) {
   const [authType, setAuthType] = useState(null); // "login" | "signup"
 
   return (
