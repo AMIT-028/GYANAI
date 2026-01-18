@@ -3,6 +3,14 @@ const Thread = require("../models/Thread");
 const router = express.Router();
 const getOpenAIAPIResponse = require("../utils/openai");
 
+const multer = require("multer");
+const pdf = require("pdf-parse");
+const mammoth = require("mammoth");
+const Tesseract = require("tesseract.js");
+const fs = require("fs");
+
+const upload = multer({ dest: "uploads/" });
+
 /* ---------- THREAD ROUTES ---------- */
 
 router.get("/thread", async (req, res) => {
@@ -33,16 +41,43 @@ router.delete("/thread/:threadId", async (req, res) => {
   }
 });
 
-/* ---------- CHAT ROUTE ---------- */
 
-router.post("/chat", async (req, res) => {
-  const { threadId, message, extractedText } = req.body;
 
-  if (!threadId || (!message && !extractedText)) {
-    return res.status(400).json({ error: "Missing input" });
-  }
+router.post("/chat", upload.single("file"), async (req, res) => {
+  try {
+    const { threadId, message } = req.body;
+    let extractedText = "";
 
-  const finalPrompt = `
+    if (!threadId || (!message && !req.file)) {
+      return res.status(400).json({ error: "Missing input" });
+    }
+
+    /* ---------- FILE PARSING (OPTIONAL) ---------- */
+    if (req.file) {
+      const filePath = req.file.path;
+      const mime = req.file.mimetype;
+
+      try {
+        if (mime === "application/pdf") {
+          const data = await pdf(fs.readFileSync(filePath));
+          extractedText = data.text;
+        }
+        else if (mime.includes("word")) {
+          const result = await mammoth.extractRawText({ path: filePath });
+          extractedText = result.value;
+        }
+        else if (mime.startsWith("image/")) {
+          const { data } = await Tesseract.recognize(filePath, "eng");
+          extractedText = data.text;
+        }
+      } finally {
+        /* 🔥 ALWAYS CLEAN UP FILE */
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    /* ---------- FINAL PROMPT (UNCHANGED LOGIC) ---------- */
+    const finalPrompt = `
 User message:
 ${message || ""}
 
@@ -50,26 +85,38 @@ File content:
 ${extractedText || "No file"}
 `;
 
-  let thread = await Thread.findOne({ threadId });
+    /* ---------- THREAD HANDLING (UNCHANGED) ---------- */
+    let thread = await Thread.findOne({ threadId });
 
-  if (!thread) {
-    thread = new Thread({
-      threadId,
-      title: message || "File Chat",
-      messages: [],
+    if (!thread) {
+      thread = new Thread({
+        threadId,
+        title: message || "File Chat",
+        messages: [],
+      });
+    }
+
+    thread.messages.push({
+      role: "user",
+      content: message || "[File uploaded]",
     });
+
+    const reply = await getOpenAIAPIResponse(finalPrompt);
+
+    thread.messages.push({
+      role: "assistant",
+      content: reply,
+    });
+
+    thread.updatedAt = new Date();
+    await thread.save();
+
+    res.json({ reply });
+
+  } catch (err) {
+    console.error("CHAT ERROR:", err);
+    res.status(500).json({ error: "Chat processing failed" });
   }
-
-  thread.messages.push({ role: "user", content: message || "[File uploaded]" });
-
-  const reply = await getOpenAIAPIResponse(finalPrompt);
-
-  thread.messages.push({ role: "assistant", content: reply });
-  thread.updatedAt = new Date();
-
-  await thread.save();
-
-  res.json({ reply });
 });
 
 module.exports = router;
