@@ -10,44 +10,39 @@ export default function AuthModal({ type, onClose }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async () => {
-    try {
-      setLoading(true);
+const handleSubmit = async () => {
+  try {
+    setLoading(true);
 
-      const url =
-        type === "login"
-          ? `${API_BASE}/api/auth/login`
-          : `${API_BASE}/api/auth/register`;
+    const url =
+      type === "login"
+        ? `${API_BASE}/api/auth/login`
+        : `${API_BASE}/api/auth/register`;
 
-      const payload =
-        type === "login"
-          ? { email, password }
-          : { name: "User", email, password };
+    const payload =
+      type === "login"
+        ? { email, password }
+        : { name: "User", email, password };
 
-      const res = await axios.post(url, payload);
+    const res = await axios.post(url, payload);
 
-      if (!res.data.token) {
-        alert("Authentication failed");
-        return;
-      }
-
-      // ✅ Save token
-      localStorage.setItem("token", res.data.token);
-
-      // ✅ Close modal FIRST
-      onClose();
-
-      // ✅ Navigate AFTER React updates
-      setTimeout(() => {
-        navigate("/chat", { replace: true });
-      }, 0);
-
-    } catch (err) {
-      alert(err.response?.data?.error || "Authentication failed");
-    } finally {
-      setLoading(false);
+    if (!res.data.token) {
+      alert("Authentication failed");
+      return;
     }
-  };
+
+    localStorage.setItem("token", res.data.token);
+
+    onClose();                 // close modal
+    navigate("/chat", { replace: true }); // SPA navigation
+
+  } catch (err) {
+    alert(err.response?.data?.error || "Authentication failed");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="auth-overlay" onClick={onClose}>

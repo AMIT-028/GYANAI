@@ -5,11 +5,13 @@ import ChatWindow from "./ChatWindow";
 import { MyContext } from "./MyContext";
 import { useState } from "react";
 import { v1 as uuidv1 } from "uuid";
-import AuthModal from "./components/AuthModal";
+import "highlight.js/styles/github-dark.css";
 
+/* 🔐 PROTECTED ROUTE (PUT HERE) */
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token");
-  return token ? children : <Navigate to="/" replace />;
+  if (!token) return <Navigate to="/" replace />;
+  return children;
 }
 
 function App() {
@@ -19,8 +21,6 @@ function App() {
   const [prevChats, setPrevChats] = useState([]);
   const [newChat, setNewChat] = useState(true);
   const [allThreads, setAllThreads] = useState([]);
-
-  const [authType, setAuthType] = useState(null); // 👈 MOVED HERE
 
   return (
     <MyContext.Provider
@@ -35,16 +35,11 @@ function App() {
     >
       <BrowserRouter>
         <Routes>
-          <Route
-            path="/"
-            element={
-              <LandingPage
-                onLogin={() => setAuthType("login")}
-                onSignup={() => setAuthType("signup")}
-              />
-            }
-          />
 
+          {/* 🌍 PUBLIC ROUTE */}
+          <Route path="/" element={<LandingPage />} />
+
+          {/* 🔐 PROTECTED CHAT ROUTE */}
           <Route
             path="/chat"
             element={
@@ -56,15 +51,8 @@ function App() {
               </ProtectedRoute>
             }
           />
-        </Routes>
 
-        {/* ✅ MODAL INSIDE ROUTER */}
-        {authType && (
-          <AuthModal
-            type={authType}
-            onClose={() => setAuthType(null)}
-          />
-        )}
+        </Routes>
       </BrowserRouter>
     </MyContext.Provider>
   );
