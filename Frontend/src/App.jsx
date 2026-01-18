@@ -5,13 +5,10 @@ import ChatWindow from "./ChatWindow";
 import { MyContext } from "./MyContext";
 import { useState } from "react";
 import { v1 as uuidv1 } from "uuid";
-import "highlight.js/styles/github-dark.css";
 
-/* 🔐 PROTECTED ROUTE (PUT HERE) */
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token");
-  if (!token) return <Navigate to="/" replace />;
-  return children;
+  return token ? children : <Navigate to="/" replace />;
 }
 
 function App() {
@@ -35,11 +32,10 @@ function App() {
     >
       <BrowserRouter>
         <Routes>
-
-          {/* 🌍 PUBLIC ROUTE */}
+          {/* Landing */}
           <Route path="/" element={<LandingPage />} />
 
-          {/* 🔐 PROTECTED CHAT ROUTE */}
+          {/* Chat (protected) */}
           <Route
             path="/chat"
             element={
@@ -51,7 +47,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
         </Routes>
       </BrowserRouter>
     </MyContext.Provider>
