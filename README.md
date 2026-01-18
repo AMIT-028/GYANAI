@@ -2,6 +2,13 @@
 
 GYANAI is a full-stack AI chat application inspired by ChatGPT, built with modern web technologies.
 It supports real-time AI conversations, JWT authentication, file uploads with AI context, speech-to-text with live mic waveform, code highlighting, and thread-based chat history.
+🌐 Live Deployment Links:
+
+🔹 Frontend (Vercel)
+👉 https://gyanai-chi.vercel.app/
+🔹 Backend (Render)
+👉 https://gyanai-backend.onrender.com
+
 
 ✨ Features
 🔐 Authentication
