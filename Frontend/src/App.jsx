@@ -5,6 +5,7 @@ import ChatWindow from "./ChatWindow";
 import { MyContext } from "./MyContext";
 import { useState } from "react";
 import { v1 as uuidv1 } from "uuid";
+import "highlight.js/styles/github-dark.css";
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("token");

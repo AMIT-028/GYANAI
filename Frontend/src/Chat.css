@@ -124,9 +124,16 @@ pre {
   color: #9ca3af;
 }
 .codeBlock {
-  position: relative;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+  overflow-x: auto;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.6;
 }
-
 .codeCopyBtn {
   position: absolute;
   top: 8px;
@@ -141,6 +148,24 @@ pre {
   cursor: pointer;
   opacity: 0.7;
   transition: all 0.2s ease;
+}
+.codeBlock {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+  overflow-x: auto;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.inlineCode {
+  background: rgba(110,118,129,0.4);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 13px;
 }
 
 .codeCopyBtn:hover {

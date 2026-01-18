@@ -87,7 +87,10 @@ function Chat() {
 
       <div className="chats">
         {prevChats.map((chat, idx) => (
-          <div key={idx} className={chat.role === "user" ? "userDiv" : "gptDiv"}>
+          <div
+            key={idx}
+            className={chat.role === "user" ? "userDiv" : "gptDiv"}
+          >
             <div className="messageBlock">
               {chat.role === "user" ? (
                 editingIndex === idx ? (
@@ -102,7 +105,24 @@ function Chat() {
                 )
               ) : (
                 <div className="gptMessage">
-                  <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
+                  <ReactMarkdown
+                    rehypePlugins={[rehypeHighlight]}
+                    components={{
+                      code({ inline, className, children, ...props }) {
+                        return !inline ? (
+                          <pre className="codeBlock">
+                            <code className={className} {...props}>
+                              {children}
+                            </code>
+                          </pre>
+                        ) : (
+                          <code className="inlineCode" {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
+                    }}
+                  >
                     {chat.content}
                   </ReactMarkdown>
                 </div>
@@ -110,20 +130,26 @@ function Chat() {
 
               <div className="messageActions">
                 <span onClick={() => copyText(chat.content, idx)}>
-                  <i className={`fa-solid ${copiedIndex === idx ? "fa-check" : "fa-copy"}`} />
+                  <i
+                    className={`fa-solid ${copiedIndex === idx ? "fa-check" : "fa-copy"}`}
+                  />
                 </span>
 
                 {chat.role === "assistant" && (
                   <span onClick={() => speakText(chat.content, idx)}>
-                    <i className={`fa-solid ${speakingIndex === idx ? "fa-volume-xmark" : "fa-volume-high"}`} />
+                    <i
+                      className={`fa-solid ${speakingIndex === idx ? "fa-volume-xmark" : "fa-volume-high"}`}
+                    />
                   </span>
                 )}
 
                 {chat.role === "user" && (
-                  <span onClick={() => {
-                    setEditingIndex(idx);
-                    setEditedText(chat.content);
-                  }}>
+                  <span
+                    onClick={() => {
+                      setEditingIndex(idx);
+                      setEditedText(chat.content);
+                    }}
+                  >
                     <i className="fa-solid fa-pen" />
                   </span>
                 )}
