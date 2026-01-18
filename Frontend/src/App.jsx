@@ -34,15 +34,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           {/* Landing */}
-          <Route
-  path="/"
-  element={
-    localStorage.getItem("token")
-      ? <Navigate to="/chat" replace />
-      : <LandingPage />
-  }
-/>
-
+          <Route path="/" element={<LandingPage />} />
 
           {/* Chat (protected) */}
           <Route
