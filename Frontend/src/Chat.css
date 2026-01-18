@@ -58,13 +58,10 @@
 }
 
 .gptMessage {
-  background: #2b2b2b;
-  padding: 14px 16px;
-    border-radius: 18px;
-    font-size: 15px;
-    line-height: 1.65;
-    color: #f3f4f6;
-    max-width: 780px;
+  color: #f3f4f6;
+  font-size: 15px;
+  line-height: 1.65;
+  max-width: 780px;
 }
 
 /* COPY BUTTON ROW (BELOW MESSAGE) */
@@ -102,14 +99,6 @@
 }
 
 /* CODE BLOCKS */
-pre {
-  background-color: #1e1e1e;
-  padding: 16px;
-  border-radius: 12px;
-  overflow-x: auto;
-  font-size: 14px;
-  margin: 0;
-}
 
 .hljs {
   background: transparent !important;
@@ -134,6 +123,13 @@ pre {
   font-size: 14px;
   line-height: 1.6;
 }
+.codeBlock pre {
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+}
+
 .codeCopyBtn {
   position: absolute;
   top: 8px;
