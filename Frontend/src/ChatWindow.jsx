@@ -24,21 +24,16 @@ function ChatWindow() {
 
   const recognitionRef = useRef(null);
   const lastPromptRef = useRef("");
-  const audioContextRef = useRef(null);
-  const analyserRef = useRef(null);
-  const dataArrayRef = useRef(null);
-  const sourceRef = useRef(null);
-  const rafRef = useRef(null);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     window.location.href = "/";
   };
 
+  /* ---------- SPEECH TO TEXT (INPUT MIC) ---------- */
   useEffect(() => {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
-
     if (!SpeechRecognition) return;
 
     const recognition = new SpeechRecognition();
@@ -46,51 +41,12 @@ function ChatWindow() {
     recognition.continuous = false;
     recognition.interimResults = false;
 
-    recognition.onstart = async () => {
-      setListening(true);
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioContextRef.current = new AudioContext();
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      sourceRef.current =
-        audioContextRef.current.createMediaStreamSource(stream);
-
-      analyserRef.current.fftSize = 256;
-      dataArrayRef.current = new Uint8Array(
-        analyserRef.current.frequencyBinCount
-      );
-
-      sourceRef.current.connect(analyserRef.current);
-
-      const animate = () => {
-        analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-        const values = Array.from(dataArrayRef.current.slice(0, 5)).map(
-          (v) => Math.max(6, v / 6)
-        );
-        setWaveData(values);
-        rafRef.current = requestAnimationFrame(animate);
-      };
-
-      animate();
-    };
-
-    recognition.onend = () => {
-      setListening(false);
-      cancelAnimationFrame(rafRef.current);
-      audioContextRef.current?.close();
-      setWaveData([5, 5, 5, 5, 5]);
-
-      if (prompt.trim()) getReply();
-    };
+    recognition.onstart = () => setListening(true);
+    recognition.onend = () => setListening(false);
 
     recognition.onresult = (e) => {
       const transcript = e.results[0][0].transcript;
       setPrompt((p) => (p ? p + " " + transcript : transcript));
-    };
-
-    recognition.onerror = () => {
-      setListening(false);
-      cancelAnimationFrame(rafRef.current);
     };
 
     recognitionRef.current = recognition;
@@ -104,12 +60,12 @@ function ChatWindow() {
     if (listening) recognitionRef.current?.stop();
   };
 
+  /* ---------- SEND MESSAGE ---------- */
   const getReply = async () => {
     if (!prompt.trim()) return;
 
     setLoading(true);
     setNewChat(false);
-
     lastPromptRef.current = prompt;
 
     try {
@@ -132,6 +88,7 @@ function ChatWindow() {
     setLoading(false);
   };
 
+  /* ---------- SAVE USER MESSAGE ONLY ---------- */
   useEffect(() => {
     if (!reply) return;
 
@@ -146,9 +103,7 @@ function ChatWindow() {
       <div className="navbar">
         <span>GYANAI</span>
         <div className="userIconDiv" onClick={() => setIsOpen(!isOpen)}>
-          <span className="userIcon">
-            <i className="fa-solid fa-user"></i>
-          </span>
+          <i className="fa-solid fa-user"></i>
         </div>
       </div>
 
@@ -189,23 +144,11 @@ function ChatWindow() {
               ></i>
             </span>
 
-            {listening && (
-              <div className="waveform">
-                {waveData.map((h, i) => (
-                  <span key={i} style={{ height: `${h}px` }} />
-                ))}
-              </div>
-            )}
-
             <div id="submit" onClick={getReply}>
               <i className="fa-solid fa-paper-plane"></i>
             </div>
           </div>
         </div>
-
-        <p className="info">
-          GYANAI can make mistakes. Check important info.
-        </p>
       </div>
     </div>
   );
