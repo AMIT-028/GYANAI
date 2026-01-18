@@ -21,34 +21,90 @@ function ChatWindow() {
   const [isOpen, setIsOpen] = useState(false);
   const [listening, setListening] = useState(false);
 
+  /* 🔊 MIC WAVE STATE */
+  const [waveData, setWaveData] = useState([5, 5, 5, 5, 5]);
+
+  /* REFS */
   const recognitionRef = useRef(null);
   const abortRef = useRef(null);
   const lastPromptRef = useRef("");
+
+  /* AUDIO ANALYSER REFS */
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+  const dataArrayRef = useRef(null);
+  const sourceRef = useRef(null);
+  const rafRef = useRef(null);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     window.location.href = "/";
   };
 
-  /* -------- SPEECH TO TEXT -------- */
+  /* ---------- SPEECH TO TEXT + MIC WAVE ---------- */
   useEffect(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
 
     const rec = new SR();
     rec.lang = "en-US";
-    rec.onstart = () => setListening(true);
-    rec.onend = () => setListening(false);
-    rec.onresult = (e) =>
-      setPrompt((p) => (p ? p + " " : "") + e.results[0][0].transcript);
+    rec.continuous = false;
+    rec.interimResults = false;
+
+    rec.onstart = async () => {
+      setListening(true);
+
+      /* 🎧 START AUDIO ANALYSIS */
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      audioCtxRef.current = new AudioContext();
+      analyserRef.current = audioCtxRef.current.createAnalyser();
+      sourceRef.current =
+        audioCtxRef.current.createMediaStreamSource(stream);
+
+      analyserRef.current.fftSize = 256;
+      dataArrayRef.current = new Uint8Array(
+        analyserRef.current.frequencyBinCount
+      );
+
+      sourceRef.current.connect(analyserRef.current);
+
+      const animate = () => {
+        analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+        const values = Array.from(dataArrayRef.current.slice(0, 5)).map(
+          (v) => Math.max(6, v / 6)
+        );
+        setWaveData(values);
+        rafRef.current = requestAnimationFrame(animate);
+      };
+
+      animate();
+    };
+
+    rec.onend = () => {
+      setListening(false);
+      cancelAnimationFrame(rafRef.current);
+      audioCtxRef.current?.close();
+      setWaveData([5, 5, 5, 5, 5]);
+    };
+
+    rec.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      setPrompt((p) => (p ? p + " " : "") + transcript);
+    };
 
     recognitionRef.current = rec;
-  }, []);
+  }, [setPrompt]);
 
-  const startListening = () => recognitionRef.current?.start();
-  const stopListening = () => recognitionRef.current?.stop();
+  const startListening = () => {
+    if (!listening) recognitionRef.current?.start();
+  };
 
-  /* -------- SEND MESSAGE -------- */
+  const stopListening = () => {
+    if (listening) recognitionRef.current?.stop();
+  };
+
+  /* ---------- SEND MESSAGE ---------- */
   const getReply = async () => {
     if (!prompt.trim()) return;
 
@@ -84,7 +140,7 @@ function ChatWindow() {
     setLoading(false);
   };
 
-  /* -------- SAVE USER MESSAGE ONLY -------- */
+  /* ---------- SAVE USER MESSAGE ---------- */
   useEffect(() => {
     if (!reply) return;
 
@@ -135,13 +191,26 @@ function ChatWindow() {
               onClick={listening ? stopListening : startListening}
             >
               <i
-                className={`fa-solid ${listening ? "fa-microphone-slash" : "fa-microphone"}`}
+                className={`fa-solid ${
+                  listening ? "fa-microphone-slash" : "fa-microphone"
+                }`}
               />
             </span>
 
+            {/* 🔊 MIC WAVE */}
+            {listening && (
+              <div className="waveform">
+                {waveData.map((h, i) => (
+                  <span key={i} style={{ height: `${h}px` }} />
+                ))}
+              </div>
+            )}
+
             <div id="submit" onClick={loading ? stopReply : getReply}>
               <i
-                className={`fa-solid ${loading ? "fa-stop" : "fa-paper-plane"}`}
+                className={`fa-solid ${
+                  loading ? "fa-stop" : "fa-paper-plane"
+                }`}
               />
             </div>
           </div>

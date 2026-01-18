@@ -27,9 +27,11 @@
 
 .userIconDiv {
   cursor: pointer;
+  padding-right: 0.5rem;
 }
 
 .userAvatar {
+  
   width: 38px;
   height: 38px;
   border-radius: 50%;
