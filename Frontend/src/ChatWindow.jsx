@@ -24,7 +24,7 @@ function ChatWindow() {
   const [file, setFile] = useState(null);
   const fileInputRef = useRef(null);
 
-  /* MIC WAVE STATE */
+  /* MIC WAVE */
   const [waveData, setWaveData] = useState([6, 6, 6, 6, 6]);
 
   /* REFS */
@@ -32,47 +32,38 @@ function ChatWindow() {
   const abortRef = useRef(null);
   const lastPromptRef = useRef("");
 
-  /* AUDIO ANALYSER REFS (MIC WAVE FIX) */
+  /* AUDIO */
   const audioCtxRef = useRef(null);
   const analyserRef = useRef(null);
   const dataArrayRef = useRef(null);
   const sourceRef = useRef(null);
   const rafRef = useRef(null);
 
-  /* ---------- SPEECH TO TEXT + MIC WAVE ---------- */
+  /* ---------- SPEECH TO TEXT + WAVE ---------- */
   useEffect(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
 
     const rec = new SR();
     rec.lang = "en-US";
-    rec.continuous = false;
-    rec.interimResults = false;
 
     rec.onstart = async () => {
       setListening(true);
-
-      // 🎧 MIC WAVE SETUP (THIS WAS MISSING BEFORE)
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
       audioCtxRef.current = new AudioContext();
       analyserRef.current = audioCtxRef.current.createAnalyser();
-      sourceRef.current =
-        audioCtxRef.current.createMediaStreamSource(stream);
+      sourceRef.current = audioCtxRef.current.createMediaStreamSource(stream);
 
       analyserRef.current.fftSize = 256;
-      dataArrayRef.current = new Uint8Array(
-        analyserRef.current.frequencyBinCount
-      );
-
+      dataArrayRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
       sourceRef.current.connect(analyserRef.current);
 
       const animate = () => {
         analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-        const values = Array.from(dataArrayRef.current.slice(0, 5)).map(
-          (v) => Math.max(6, v / 6)
+        setWaveData(
+          Array.from(dataArrayRef.current.slice(0, 5)).map(v => Math.max(6, v / 6))
         );
-        setWaveData(values);
         rafRef.current = requestAnimationFrame(animate);
       };
 
@@ -86,21 +77,21 @@ function ChatWindow() {
       setWaveData([6, 6, 6, 6, 6]);
     };
 
-    rec.onresult = (e) => {
-      const transcript = e.results[0][0].transcript;
-      setPrompt((p) => (p ? p + " " : "") + transcript);
+    rec.onresult = e => {
+      const text = e.results[0][0].transcript;
+      setPrompt(p => (p ? p + " " : "") + text);
     };
 
     recognitionRef.current = rec;
   }, [setPrompt]);
 
   /* ---------- FILE PICK ---------- */
-  const handleFileSelect = (e) => {
-    const selected = e.target.files[0];
-    if (selected) setFile(selected);
+  const handleFileSelect = e => {
+    const f = e.target.files[0];
+    if (f) setFile(f);
   };
 
-  /* ---------- SEND MESSAGE ---------- */
+  /* ---------- SEND ---------- */
   const getReply = async () => {
     if (!prompt.trim() && !file) return;
 
@@ -111,21 +102,21 @@ function ChatWindow() {
     abortRef.current = new AbortController();
 
     try {
-      const formData = new FormData();
-      formData.append("message", prompt);
-      formData.append("threadId", currThreadId);
-      if (file) formData.append("file", file);
+      const fd = new FormData();
+      fd.append("message", prompt);
+      fd.append("threadId", currThreadId);
+      if (file) fd.append("file", file);
 
       const res = await fetch(`${API_BASE}/api/chat`, {
         method: "POST",
-        body: formData,
+        body: fd,
         signal: abortRef.current.signal,
       });
 
       const data = await res.json();
       setReply(data.reply);
-    } catch (err) {
-      if (err.name !== "AbortError") console.error(err);
+    } catch (e) {
+      if (e.name !== "AbortError") console.error(e);
     }
 
     setPrompt("");
@@ -138,36 +129,41 @@ function ChatWindow() {
     setLoading(false);
   };
 
-  /* ---------- SAVE USER MESSAGE ---------- */
+  /* ---------- SAVE USER MSG ---------- */
   useEffect(() => {
     if (!reply) return;
-    setPrevChats((prev) => [
-      ...prev,
-      { role: "user", content: lastPromptRef.current },
-    ]);
+    setPrevChats(p => [...p, { role: "user", content: lastPromptRef.current }]);
   }, [reply, setPrevChats]);
+
+  const isImage = file?.type.startsWith("image/");
 
   return (
     <div className="chatWindow">
       <Chat />
-
       <ScaleLoader color="#fff" loading={loading} />
 
       <div className="chatInput">
         <div className="inputBox">
-          {/* FILE PREVIEW */}
+
+          {/* FILE CHIP (FIXED) */}
           {file && (
-            <div className="filePreview">
-              <span>{file.name}</span>
-              <button onClick={() => setFile(null)}>✕</button>
+            <div className="fileChip">
+              {isImage ? (
+                <img
+                  src={URL.createObjectURL(file)}
+                  alt="preview"
+                  className="fileThumb"
+                />
+              ) : (
+                <span className="fileIcon">📄</span>
+              )}
+              <span className="fileName">{file.name}</span>
+              <span className="removeFile" onClick={() => setFile(null)}>✕</span>
             </div>
           )}
 
-          {/* ATTACH BUTTON */}
-          <span
-            className="attachBtn"
-            onClick={() => fileInputRef.current.click()}
-          >
+          {/* ATTACH */}
+          <span className="attachBtn" onClick={() => fileInputRef.current.click()}>
             +
           </span>
 
@@ -175,12 +171,11 @@ function ChatWindow() {
             value={prompt}
             disabled={loading}
             placeholder="Ask anything"
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && getReply()}
+            onChange={e => setPrompt(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && getReply()}
           />
 
           <div className="actionBtns">
-            {/* MIC */}
             <span
               className={`micBtn ${listening ? "listening" : ""}`}
               onClick={() =>
@@ -189,14 +184,9 @@ function ChatWindow() {
                   : recognitionRef.current.start()
               }
             >
-              <i
-                className={`fa-solid ${
-                  listening ? "fa-microphone-slash" : "fa-microphone"
-                }`}
-              />
+              <i className={`fa-solid ${listening ? "fa-microphone-slash" : "fa-microphone"}`} />
             </span>
 
-            {/* 🔊 MIC WAVE (FIXED) */}
             {listening && (
               <div className="waveform">
                 {waveData.map((h, i) => (
@@ -205,17 +195,11 @@ function ChatWindow() {
               </div>
             )}
 
-            {/* SEND / STOP */}
             <div id="submit" onClick={loading ? stopReply : getReply}>
-              <i
-                className={`fa-solid ${
-                  loading ? "fa-stop" : "fa-paper-plane"
-                }`}
-              />
+              <i className={`fa-solid ${loading ? "fa-stop" : "fa-paper-plane"}`} />
             </div>
           </div>
 
-          {/* HIDDEN FILE INPUT */}
           <input
             ref={fileInputRef}
             type="file"
