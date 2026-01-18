@@ -32,61 +32,99 @@ function ChatWindow() {
   const abortRef = useRef(null);
   const lastPromptRef = useRef("");
 
-  /* AUDIO */
+  /* AUDIO REFS */
   const audioCtxRef = useRef(null);
   const analyserRef = useRef(null);
   const dataArrayRef = useRef(null);
   const sourceRef = useRef(null);
+  const streamRef = useRef(null);
   const rafRef = useRef(null);
 
-  /* ---------- SPEECH TO TEXT + WAVE ---------- */
+  /* ---------- INIT SPEECH RECOGNITION ---------- */
   useEffect(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
 
     const rec = new SR();
     rec.lang = "en-US";
+    rec.continuous = false;
+    rec.interimResults = false;
 
-    rec.onstart = async () => {
+    rec.onstart = () => {
       setListening(true);
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-      audioCtxRef.current = new AudioContext();
-      analyserRef.current = audioCtxRef.current.createAnalyser();
-      sourceRef.current = audioCtxRef.current.createMediaStreamSource(stream);
-
-      analyserRef.current.fftSize = 256;
-      dataArrayRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
-      sourceRef.current.connect(analyserRef.current);
-
-      const animate = () => {
-        analyserRef.current.getByteFrequencyData(dataArrayRef.current);
-        setWaveData(
-          Array.from(dataArrayRef.current.slice(0, 5)).map(v => Math.max(6, v / 6))
-        );
-        rafRef.current = requestAnimationFrame(animate);
-      };
-
-      animate();
+      startWave();
     };
 
     rec.onend = () => {
+      stopWave();
       setListening(false);
-      cancelAnimationFrame(rafRef.current);
-      audioCtxRef.current?.close();
-      setWaveData([6, 6, 6, 6, 6]);
     };
 
-    rec.onresult = e => {
+    rec.onerror = () => {
+      stopWave();
+      setListening(false);
+    };
+
+    rec.onresult = (e) => {
       const text = e.results[0][0].transcript;
-      setPrompt(p => (p ? p + " " : "") + text);
+      setPrompt((p) => (p ? p + " " : "") + text);
     };
 
     recognitionRef.current = rec;
   }, [setPrompt]);
 
+  /* ---------- MIC WAVE FUNCTIONS ---------- */
+  const startWave = async () => {
+    streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtxRef.current.state === "suspended") {
+      await audioCtxRef.current.resume();
+    }
+
+    analyserRef.current = audioCtxRef.current.createAnalyser();
+    analyserRef.current.fftSize = 256;
+
+    sourceRef.current =
+      audioCtxRef.current.createMediaStreamSource(streamRef.current);
+
+    dataArrayRef.current = new Uint8Array(analyserRef.current.frequencyBinCount);
+    sourceRef.current.connect(analyserRef.current);
+
+    const animate = () => {
+      analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+      setWaveData(
+        Array.from(dataArrayRef.current.slice(0, 5)).map((v) =>
+          Math.max(6, v / 6)
+        )
+      );
+      rafRef.current = requestAnimationFrame(animate);
+    };
+
+    animate();
+  };
+
+  const stopWave = () => {
+    cancelAnimationFrame(rafRef.current);
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    audioCtxRef.current?.close();
+    setWaveData([6, 6, 6, 6, 6]);
+  };
+
+  /* ---------- MIC CONTROLS ---------- */
+  const startListening = async () => {
+    if (!recognitionRef.current || listening) return;
+    try {
+      recognitionRef.current.start();
+    } catch {}
+  };
+
+  const stopListening = () => {
+    recognitionRef.current?.stop();
+  };
+
   /* ---------- FILE PICK ---------- */
-  const handleFileSelect = e => {
+  const handleFileSelect = (e) => {
     const f = e.target.files[0];
     if (f) setFile(f);
   };
@@ -132,7 +170,10 @@ function ChatWindow() {
   /* ---------- SAVE USER MSG ---------- */
   useEffect(() => {
     if (!reply) return;
-    setPrevChats(p => [...p, { role: "user", content: lastPromptRef.current }]);
+    setPrevChats((p) => [
+      ...p,
+      { role: "user", content: lastPromptRef.current },
+    ]);
   }, [reply, setPrevChats]);
 
   const isImage = file?.type.startsWith("image/");
@@ -144,8 +185,6 @@ function ChatWindow() {
 
       <div className="chatInput">
         <div className="inputBox">
-
-          {/* FILE CHIP (FIXED) */}
           {file && (
             <div className="fileChip">
               {isImage ? (
@@ -158,12 +197,16 @@ function ChatWindow() {
                 <span className="fileIcon">📄</span>
               )}
               <span className="fileName">{file.name}</span>
-              <span className="removeFile" onClick={() => setFile(null)}>✕</span>
+              <span className="removeFile" onClick={() => setFile(null)}>
+                ✕
+              </span>
             </div>
           )}
 
-          {/* ATTACH */}
-          <span className="attachBtn" onClick={() => fileInputRef.current.click()}>
+          <span
+            className="attachBtn"
+            onClick={() => fileInputRef.current.click()}
+          >
             +
           </span>
 
@@ -171,20 +214,20 @@ function ChatWindow() {
             value={prompt}
             disabled={loading}
             placeholder="Ask anything"
-            onChange={e => setPrompt(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && getReply()}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && getReply()}
           />
 
           <div className="actionBtns">
             <span
               className={`micBtn ${listening ? "listening" : ""}`}
-              onClick={() =>
-                listening
-                  ? recognitionRef.current.stop()
-                  : recognitionRef.current.start()
-              }
+              onClick={listening ? stopListening : startListening}
             >
-              <i className={`fa-solid ${listening ? "fa-microphone-slash" : "fa-microphone"}`} />
+              <i
+                className={`fa-solid ${
+                  listening ? "fa-microphone-slash" : "fa-microphone"
+                }`}
+              />
             </span>
 
             {listening && (
@@ -196,7 +239,11 @@ function ChatWindow() {
             )}
 
             <div id="submit" onClick={loading ? stopReply : getReply}>
-              <i className={`fa-solid ${loading ? "fa-stop" : "fa-paper-plane"}`} />
+              <i
+                className={`fa-solid ${
+                  loading ? "fa-stop" : "fa-paper-plane"
+                }`}
+              />
             </div>
           </div>
 
